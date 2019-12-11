@@ -1,0 +1,47 @@
+
+---
+title: "csv to xlsx"
+author: "Bram van Smoorenburg"
+date: "11 april 2019"
+output: html_document
+---
+ 
+```{r}
+library(openxlsx)
+```
+ 
+```{r}
+dirname="./algorithm"
+removedir=TRUE
+```
+ 
+reading
+```{r}
+valid2=read.csv(paste0(dirname,"/validation.csv"))[,-1]
+covdif=read.csv(paste0(dirname,"/covdif.csv"))[,-1]
+vardif=read.csv(paste0(dirname,"/vardif.csv"))[,-1]
+kstests=read.csv(paste0(dirname,"/kstests.csv"))[,-1]
+rubin_parameters=read.csv(paste0(dirname,"/rubin_parameters.csv"))[,-1]
+```
+ 
+saving
+```{r}
+filename="algorithm output larger.xlsx"
+wb=createWorkbook()
+addWorksheet(wb,"imputed_values")
+addWorksheet(wb,"covdif")
+  addWorksheet(wb,"vardiff")
+  addWorksheet(wb,"kstests")
+  addWorksheet(wb,"rubin_parameters")
+  writeData(wb,1,valid2,keepNA = TRUE)
+  writeData(wb,2,covdif)
+  writeData(wb,3,vardif)
+  writeData(wb,4,kstests)
+  writeData(wb,5,rubin_parameters)
+saveWorkbook(wb,filename)
+if (removedir) {
+  unlink(dirname,recursive = TRUE)
+}
+rm(list=ls())
+gc()
+```

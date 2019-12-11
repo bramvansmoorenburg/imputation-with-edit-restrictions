@@ -1,0 +1,210 @@
+
+---
+title: "iteration combiner"
+author: "Bram van Smoorenburg"
+date: "3 juni 2019"
+output: html_document
+---
+ 
+```{r}
+outdirname="./algorithm output"
+removedir=FALSE
+```
+ 
+```{r}
+library(openxlsx)
+source("imputationvalidator.R")
+```
+ 
+```{r}
+its=list.files()
+its=its[!its%in%gsub("_","",its)]
+its=sapply(its,function(x){paste0("./",x)})
+dir.create(outdirname)
+dir.create(paste0(outdirname,"/algorithm"))
+dir.create(paste0(outdirname,"/algorithmcont"))
+dir.create(paste0(outdirname,"/algorithmsim1"))
+dir.create(paste0(outdirname,"/algorithmsim2"))
+dir.create(paste0(outdirname,"/algorithmsimcont1"))
+dir.create(paste0(outdirname,"/algorithmsimcont2"))
+```
+ 
+algorithm
+```{r}
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithm/validation.csv")}),read.csv))[,-1]
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithm/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithm/kstests.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithm/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithm/vardif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithm/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithm/covdif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithm/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithm/rubin_parameters.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithm/rubin_parameters.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithm/rubin_parameters_mice.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithm/rubin_parameters_mice.xlsx"))
+```
+ 
+algorithm control
+```{r}
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmcont/validation.csv")}),read.csv))[,-1] #it2
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithmcont/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmcont/kstests.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmcont/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmcont/vardif.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmcont/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmcont/covdif.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmcont/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-c(2,3)],function(x){paste0(x,"/algorithmcont/rubin_parameters.csv")}),read.csv))[,-1] #it 2 and 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmcont/rubin_parameters.xlsx"))
+```
+ 
+algorithm simulation1
+```{r}
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmsim1/validation.csv")}),read.csv))[,-1] #it2
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmsim1/kstests.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmsim1/vardif.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-2],function(x){paste0(x,"/algorithmsim1/covdif.csv")}),read.csv))[,-1] #it2
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-c(2:3)],function(x){paste0(x,"/algorithmsim1/rubin_parameters.csv")}),read.csv))[,-1] #it 2 and 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/rubin_parameters.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-c(2,3)],function(x){paste0(x,"/algorithmsim1/rubin_parameters_mice.csv")}),read.csv))[,-1] #it 2 and 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim1/rubin_parameters_mice.xlsx"))
+```
+ 
+algorithm simulation1 control
+```{r}
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/validation.csv")}),read.csv))[,-1]
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont1/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/kstests.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont1/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/vardif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont1/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/covdif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont1/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithmsimcont1/rubin_parameters.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont1/rubin_parameters.xlsx"))
+```
+ 
+algorithm simulation2
+```{r}
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/validation.csv")}),read.csv))[,-1]
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/kstests.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/vardif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/covdif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithmsim2/rubin_parameters.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/rubin_parameters.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithmsim2/rubin_parameters_mice.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsim2/rubin_parameters_mice.xlsx"))
+```
+ 
+algorithm simulation2 control
+```{r}
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/validation.csv")}),read.csv))[,-1]
+indicators=out[,c(1:4)]
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont2/validation.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/kstests.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont2/kstests.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/vardif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont2/vardif.xlsx"))
+out=do.call(rbind,lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/covdif.csv")}),read.csv))[,-1]
+out=cbind(indicators,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont2/covdif.xlsx"))
+out=do.call(rbind,lapply(sapply(its[-3],function(x){paste0(x,"/algorithmsimcont2/rubin_parameters.csv")}),read.csv))[,-1] #it 3
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.xlsx(out,paste0(outdirname,"/algorithmsimcont2/rubin_parameters.xlsx"))
+gc()
+```
+ 
+```{r}
+if (removedir) {
+  for (i in 1:length(its)) {
+    unlink(its[i],recursive = TRUE)
+  }
+}
+rm(list=ls())
+gc()
+```
+ 

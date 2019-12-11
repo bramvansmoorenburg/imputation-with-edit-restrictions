@@ -1,0 +1,639 @@
+
+---
+title: "iteration combiner"
+author: "Bram van Smoorenburg"
+date: "3 juni 2019"
+output: word_document
+---
+ 
+```{r}
+outdirname="./algorithm output"
+removedir=FALSE
+removedir2=FALSE
+```
+ 
+```{r}
+library(openxlsx)
+source("imputationvalidator.R")
+```
+ 
+```{r}
+its=list.files()
+its=its[!its%in%gsub("_","",its)]
+its=sapply(its,function(x){paste0("./",x)})
+nodir=FALSE
+if (!dir.exists(outdirname)) {
+  nodir=TRUE
+  dir.create(outdirname)
+dir.create(paste0(outdirname,"/algorithm"))
+dir.create(paste0(outdirname,"/algorithmcont"))
+dir.create(paste0(outdirname,"/algorithmsim1"))
+dir.create(paste0(outdirname,"/algorithmsim2"))
+dir.create(paste0(outdirname,"/algorithmsimcont1"))
+dir.create(paste0(outdirname,"/algorithmsimcont2"))
+rubinexists=sapply(its,function(x){any(list.files(paste0(x,"/algorithmcont"))=="rubin_parameters.csv")})
+}
+```
+ 
+algorithm
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithm/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithm/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/totmiss.csv"))
+out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithm/rubin_parameters.csv")}),read.csv))[,-1]
+if (any(rubinexists)) {
+  seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/rubin_parameters.csv"))
+out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithm/rubin_parameters_mice.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithm/rubin_parameters_mice.csv"))
+}
+}
+```
+ 
+algorithm control
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithmcont/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmcont/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/totmiss.csv"))
+if (any(rubinexists)) {
+  out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmcont/rubin_parameters.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmcont/rubin_parameters.csv"))
+}
+}
+```
+ 
+algorithm simulation1
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithmsim1/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim1/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/totmiss.csv"))
+if (any(rubinexists)) {
+  out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsim1/rubin_parameters.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/rubin_parameters.csv"))
+out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsim1/rubin_parameters_mice.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim1/rubin_parameters_mice.csv"))
+}
+}
+```
+ 
+algorithm simulation1 control
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont1/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/totmiss.csv"))
+if (any(rubinexists)) {
+  out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsimcont1/rubin_parameters.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont1/rubin_parameters.csv"))
+}
+}
+```
+ 
+algorithm simulation2
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithmsim2/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsim2/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/totmiss.csv"))
+if (any(rubinexists)) {
+  out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsim2/rubin_parameters.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/rubin_parameters.csv"))
+out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsim2/rubin_parameters_mice.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsim2/rubin_parameters_mice.csv"))
+}
+}
+```
+ 
+algorithm simulation2 control
+```{r}
+if (nodir) {
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/validation.csv")}),function(y){return(read.csv(y))})
+indicators=lapply(out,function(x){x[,2:5]})
+if (length(indicators)>1) {
+  for (i in 2:length(indicators)) {
+    indicators[[i]][indicators[[i]][,1]!=0,1]=indicators[[i]][indicators[[i]][,1]!=0,1]+max(indicators[[i-1]][,1])
+    indicators[[i]][,2]=indicators[[i]][,2]+max(indicators[[i-1]][,2])
+  }
+}
+out=do.call(rbind,lapply(1:length(out),function(x){cbind(indicators[[x]],out[[x]][,-c(1:5)])}))
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/validation.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/kstests.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/kstests.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/vardif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/vardif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/covdif.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/covdif.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/meansconf.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/meansconf.csv"))
+out=lapply(sapply(its,function(x){paste0(x,"/algorithmsimcont2/totmiss.csv")}),read.csv)
+inds=sapply(out,function(x){colnames(x)[2]=="dataset"})
+out=lapply(1:length(inds),function(x){if (inds[x]) {return(cbind(indicators[[x]],out[[x]][,-c(1:5)]))} else {return(cbind(indicators[[x]],out[[x]][,-1]))}})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/totmiss.csv"))
+if (any(rubinexists)) {
+  out=do.call(rbind,lapply(sapply(its[rubinexists],function(x){paste0(x,"/algorithmsimcont2/rubin_parameters.csv")}),read.csv))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+out=rubincleaner(out)
+out=lapply(out,function(x){rbind(x,-1)})
+out=do.call(rbind,out)
+write.csv(out,paste0(outdirname,"/algorithmsimcont2/rubin_parameters.csv"))
+}
+}
+```
+ 
+summarizing
+validation
+```{r}
+out=read.csv(paste0(outdirname,"/algorithm/validation.csv"))[,-1]
+validsum=cbind(scenario="algorithm",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025))
+out=read.csv(paste0(outdirname,"/algorithmcont/validation.csv"))[,-1]
+validsum=rbind(validsum,cbind(scenario="control",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025)))
+out=read.csv(paste0(outdirname,"/algorithmsim1/validation.csv"))[,-1]
+validsum=rbind(validsum,cbind(scenario="algorithmsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/validation.csv"))[,-1]
+validsum=rbind(validsum,cbind(scenario="controlsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025)))
+out=read.csv(paste0(outdirname,"/algorithmsim2/validation.csv"))[,-1]
+validsum=rbind(validsum,cbind(scenario="algorithmsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/validation.csv"))[,-1]
+validsum=rbind(validsum,cbind(scenario="controlsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean,trim=0.025)))
+colnames(validsum)[c(2,3)]=c("frac","maxits")
+```
+ 
+plotting editerr
+```{r}
+library(tidyr)
+plotting=spread_(validsum[,c(1:3,6)],"frac","editerr")
+barplot(as.matrix(plotting[5:8,3:5]),beside=TRUE)
+```
+ 
+covdif
+```{r}
+out=read.csv(paste0(outdirname,"/algorithm/covdif.csv"))[,-1]
+outcolnames=colnames(out)
+outnames=strsplit(outcolnames,".",TRUE)
+covdifsum=cbind(scenario="algorithm",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean))
+out=read.csv(paste0(outdirname,"/algorithmcont/covdif.csv"))[,-1]
+covdifsum=rbind(covdifsum,cbind(scenario="control",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim1/covdif.csv"))[,-1]
+outnames2=strsplit(colnames(out),".",TRUE)
+outnamematch=sapply(outnames,function(x){which(sapply(outnames2,function(y){all(x%in%y&y%in%x)}))})
+out=out[,outnamematch]
+colnames(out)=outcolnames
+covdifsum=rbind(covdifsum,cbind(scenario="algorithmsim1",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/covdif.csv"))[,-1][,outnamematch]
+colnames(out)=outcolnames
+covdifsum=rbind(covdifsum,cbind(scenario="controlsim1",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim2/covdif.csv"))[,-1][,outnamematch]
+colnames(out)=outcolnames
+covdifsum=rbind(covdifsum,cbind(scenario="algorithmsim2",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/covdif.csv"))[,-1][,outnamematch]
+colnames(out)=outcolnames
+covdifsum=rbind(covdifsum,cbind(scenario="controlsim2",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+colnames(covdifsum)[c(2,3)]=c("frac","maxits")
+```
+ 
+mixed effects models (load first three lines of chunk above)
+#```{r}
+library(nlme)
+for (i in 1:4) {
+  out[,i]=as.factor(out[,i])
+}
+lmemods=lapply(5:ncol(out),function(x){lme(as.formula(paste0("abs(",colnames(out)[x],")~frac+maxits")),data=out,~1|NAset)})
+lmesummary=lapply(lmemods,function(x){c(x$coefficients$fixed,randintsd=sd(x$coefficients$random$NAset))})
+names(lmesummary)=colnames(out)[-c(1:4)]
+#```
+ 
+plotting covdif
+```{r}
+library(tidyr)
+par(mfrow=c(6,6),mar=c(2,1,1,1))
+use=4:39
+for (i in 1:length(use)) {
+  plotting=spread_(covdifsum[,c(1:3,use[i])],"frac",colnames(covdifsum)[use[i]])
+barplot(as.matrix(plotting[5:8,3:5]),beside=TRUE,main = colnames(covdifsum)[use[i]])
+}
+par(mfrow=c(1,1),mar=c(5.1,4.1,4.1,2.1))
+```
+ 
+single covriance jitterplot (load first three lines of chunk above)
+#```{r}
+plot(jitter(1:ncol(out[,-c(1:4)])),out[1,-c(1:4)],ylim=c(min(out[,-c(1:4)]),max(out[,-c(1:4)])))
+abline(h=0)
+for (i in 2:nrow(out)) {
+  points(jitter(1:ncol(out[,-c(1:4)])),out[i,-c(1:4)])
+}
+#```
+ 
+kstests
+```{r}
+out=read.csv(paste0(outdirname,"/algorithm/kstests.csv"))[,-1]
+outcolnames=colnames(out)
+kstestsum=cbind(scenario="algorithm",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean))
+out=read.csv(paste0(outdirname,"/algorithmcont/kstests.csv"))[,-1]
+kstestsum=rbind(kstestsum,cbind(scenario="control",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim1/kstests.csv"))[,-1][,outcolnames]
+kstestsum=rbind(kstestsum,cbind(scenario="algorithmsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/kstests.csv"))[,-1][,outcolnames]
+kstestsum=rbind(kstestsum,cbind(scenario="controlsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim2/kstests.csv"))[,-1][,outcolnames]
+kstestsum=rbind(kstestsum,cbind(scenario="algorithmsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/kstests.csv"))[,-1][,outcolnames]
+kstestsum=rbind(kstestsum,cbind(scenario="controlsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+colnames(kstestsum)[c(2,3)]=c("frac","maxits")
+```
+ 
+plotting kstests
+```{r}
+library(tidyr)
+par(mfrow=c(3,3))
+use=4:11
+for (i in 1:length(use)) {
+  plotting=spread_(kstestsum[,c(1:3,use[i])],"frac",colnames(kstestsum)[use[i]])
+barplot(as.matrix(plotting[5:8,3:5]),beside=TRUE,main = colnames(kstestsum)[use[i]])
+}
+par(mfrow=c(1,1))
+```
+ 
+meansconf
+```{r}
+out=read.csv(paste0(outdirname,"/algorithm/meansconf.csv"))[,-1]
+outcolnames=colnames(out)
+meansconfsum=cbind(scenario="algorithm",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean))
+out=read.csv(paste0(outdirname,"/algorithmcont/meansconf.csv"))[,-1]
+meansconfsum=rbind(meansconfsum,cbind(scenario="control",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim1/meansconf.csv"))[,-1][,outcolnames]
+meansconfsum=rbind(meansconfsum,cbind(scenario="algorithmsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/meansconf.csv"))[,-1][,outcolnames]
+meansconfsum=rbind(meansconfsum,cbind(scenario="controlsim1",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim2/meansconf.csv"))[,-1][,outcolnames]
+meansconfsum=rbind(meansconfsum,cbind(scenario="algorithmsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/meansconf.csv"))[,-1][,outcolnames]
+meansconfsum=rbind(meansconfsum,cbind(scenario="controlsim2",aggregate(out[,5:ncol(out)],list(out$frac,out$maxits),mean)))
+colnames(meansconfsum)=colnames(kstestsum)
+```
+ 
+plotting meansconf
+```{r}
+library(tidyr)
+par(mfrow=c(3,3))
+use=4:11
+for (i in 1:length(use)) {
+  plotting=spread_(meansconfsum[,c(1:3,use[i])],"frac",colnames(meansconfsum)[use[i]])
+barplot(as.matrix(plotting[5:8,3:5]),beside=TRUE,main = colnames(meansconfsum)[use[i]])
+}
+par(mfrow=c(1,1))
+```
+ 
+totmiss
+```{r}
+out=read.csv(paste0(outdirname,"/algorithm/totmiss.csv"))[,-1]
+outcolnames=colnames(out)
+totmisssum=cbind(scenario="algorithm",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean))
+out=read.csv(paste0(outdirname,"/algorithmcont/totmiss.csv"))[,-1]
+totmisssum=rbind(totmisssum,cbind(scenario="control",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim1/totmiss.csv"))[,-1][,outcolnames]
+totmisssum=rbind(totmisssum,cbind(scenario="algorithmsim1",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/totmiss.csv"))[,-1][,outcolnames]
+totmisssum=rbind(totmisssum,cbind(scenario="controlsim1",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsim2/totmiss.csv"))[,-1][,outcolnames]
+totmisssum=rbind(totmisssum,cbind(scenario="algorithmsim2",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/totmiss.csv"))[,-1][,outcolnames]
+totmisssum=rbind(totmisssum,cbind(scenario="controlsim2",aggregate(abs(out[,5:ncol(out)]),list(out$frac,out$maxits),mean)))
+colnames(totmisssum)[c(2,3)]=c("frac","maxits")
+```
+ 
+plotting totmiss
+```{r}
+library(tidyr)
+par(mfrow=c(3,3))
+use=4:11
+for (i in 1:length(use)) {
+  plotting=spread_(totmisssum[,c(1:3,use[i])],"frac",colnames(totmisssum)[use[i]])
+barplot(as.matrix(plotting[5:8,3:5]),beside=TRUE,main = colnames(totmisssum)[use[i]])
+}
+par(mfrow=c(1,1))
+```
+ 
+rubin parameters
+```{r}
+if (any(rubinexists)) {
+  out=read.csv(paste0(outdirname,"/algorithm/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=cbind(scenario="algorithm",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]})))
+out=read.csv(paste0(outdirname,"/algorithmcont/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="control",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithm/rubin_parameters_mice.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="micecontrol",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsim1/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="algorithmsim1",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsimcont1/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="controlsim1",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsim1/rubin_parameters_mice.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="micecontrolsim1",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsim2/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="algorithmsim2",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsimcont2/rubin_parameters.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="controlsim2",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+out=read.csv(paste0(outdirname,"/algorithmsim2/rubin_parameters_mice.csv"))[,-1]
+seps2=which(apply(out,1,function(x){all(x==-1)}))-1
+seps=c(1,seps2[-length(seps2)]+2)
+out=lapply(1:length(seps),function(x){out[seps[x]:seps2[x],]})
+rubinsum=rbind(rubinsum,cbind(scenario="micecontrolsim2",do.call(rbind,lapply(out,function(x){x[3,-c(8:11)]}))))
+rownames(rubinsum)=NULL
+}
+```
+ 
+plotting rubin parameters
+```{r}
+library(tidyr)
+par(mfrow=c(2,2))
+rubinsum$tmp=paste0(rubinsum[,2],"-",rubinsum[,4])
+use=5:8
+for (i in 1:length(use)) {
+  plotting=spread_(rubinsum[,c(1,3,9,use[i])],"tmp",colnames(rubinsum)[use[i]])
+barplot(as.matrix(plotting[6:10,3:11]),beside=TRUE,main = colnames(rubinsum)[use[i]])
+}
+rubinsum=rubinsum[,-9]
+par(mfrow=c(1,1))
+```
+ 
+saving
+```{r}
+filename="simulations.xlsx"
+workb=createWorkbook()
+addWorksheet(workb,"single statistics")
+addWorksheet(workb,"covariances")
+addWorksheet(workb,"ks-tests")
+addWorksheet(workb,"meansconf")
+writeData(workb,1,validsum)
+writeData(workb,2,covdifsum)
+writeData(workb,3,kstestsum)
+writeData(workb,4,meansconfsum)
+if (any(rubinexists)) {
+  addWorksheet(workb,"rubin-parameters")
+  writeData(workb,5,rubinsum)
+}
+saveWorkbook(workb,filename)
+```
+ 
+```{r}
+if (removedir) {
+  for (i in 1:length(its)) {
+    unlink(its[i],recursive = TRUE)
+  }
+}
+```
+ 
+```{r}
+if (removedir2) {
+  unlink(outdirname,recursive = TRUE)
+}
+gc()
+```

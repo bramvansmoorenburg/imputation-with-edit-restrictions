@@ -1,0 +1,161 @@
+
+
+---
+
+title: "bla"
+
+author: "Bram van Smoorenburg"
+
+date: "6 juni 2019"
+
+output: html_document
+
+---
+
+ 
+
+```{r}
+
+set.seed(20190619)
+
+mu=rnorm(5,sd=3)
+
+Sigma=matrix(runif(5^2,1,10),nrow=5)
+
+Sigma=Sigma%*%t(Sigma)
+
+library(mvtnorm)
+
+library(mice)
+
+```
+
+ 
+
+```{r}
+
+poolcoefs=function(mira,wholepopulation=TRUE) {
+
+  miss=mira$nmis
+
+  coefs=sapply(mira$analyses,function(a){summary(a)$coefficients[,1]})
+
+  serrs=sapply(mira$analyses,function(a){summary(a)$coefficients[,2]})
+
+ 
+
+  theta=rowMeans(coefs)
+
+  Vw=ifelse(wholepopulation,rowMeans(serrs^2),rep(0,nrow(coefs)))
+
+  Vb=sqrt(rowSums((coefs-theta)^2)/(ncol(coefs)-1))
+
+  Vt=Vw+Vb+Vb/ncol(coefs)
+
+  df=(ncol(coefs)-1)*(1+ncol(coefs)*Vw/((ncol(coefs)+1)*Vb))^2
+
+  return(cbind(coefs=theta,se=Vt,df=df))
+
+}
+
+```
+
+ 
+
+ 
+
+```{r}
+
+it=0
+
+blaconf=matrix(0,ncol=length(mu),nrow=0)
+
+blalower=matrix(0,ncol=length(mu),nrow=0)
+
+blaupper=matrix(0,ncol=length(mu),nrow=0)
+
+bla2conf=matrix(0,ncol=length(mu),nrow=0)
+
+bla2lower=matrix(0,ncol=length(mu),nrow=0)
+
+bla2upper=matrix(0,ncol=length(mu),nrow=0)
+
+tcoefs=matrix(0,ncol=length(mu),nrow=0)
+
+repeat {
+
+  it=it+1
+
+  cat(", It:",it)
+
+  mu=rnorm(5,sd=3)
+
+Sigma=matrix(runif(5^2,1,10),nrow=5)
+
+Sigma=Sigma%*%t(Sigma)
+
+  bladat=as.data.frame(rmvnorm(3096,mu,Sigma))
+
+colnames(bladat)=letters[1:5]
+
+truemod=lm(a~.,data=bladat)
+
+truecoefs=summary(truemod)$coefficients[,1]
+
+ 
+
+nas=sample(prod(dim(bladat)),0.2*prod(dim(bladat)))
+
+blaholes=as.matrix(bladat)
+
+blaholes[nas]=NA
+
+blaholes=as.data.frame(blaholes)
+
+ 
+
+  blaimp=mice(blaholes,print=FALSE)
+
+  blamod=with(blaimp,lm(a~b+c+d+e))
+
+  blacoefs=summary(pool(blamod))[,c(1,2,4)]
+
+  bla2coefs=poolcoefs(blamod)
+
+ 
+
+  lower=blacoefs[,1]-qt(0.975,blacoefs[,3])*blacoefs[,2]
+
+  upper=blacoefs[,1]+qt(0.975,blacoefs[,3])*blacoefs[,2]
+
+  blaconf=rbind(blaconf,truecoefs>=lower&truecoefs<=upper)
+
+  blalower=rbind(blalower,lower)
+
+  blaupper=rbind(blaupper,upper)
+
+  tcoefs=rbind(tcoefs,truecoefs)
+
+  blalowdist=tcoefs-blalower
+
+  blaupdist=tcoefs-blaupper
+
+ 
+
+  lower=bla2coefs[,1]-qt(0.975,bla2coefs[,3])*bla2coefs[,2]
+
+  upper=bla2coefs[,1]+qt(0.975,bla2coefs[,3])*bla2coefs[,2]
+
+  bla2conf=rbind(bla2conf,truecoefs>=lower&truecoefs<=upper)
+
+  bla2lower=rbind(bla2lower,lower)
+
+  bla2upper=rbind(bla2upper,upper)
+
+  bla2lowdist=tcoefs-bla2lower
+
+  bla2updist=tcoefs-bla2upper
+
+}
+
+```

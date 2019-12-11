@@ -1,0 +1,411 @@
+
+
+---
+
+title: "generalized imputation algorithm"
+
+author: "Bram van Smoorenburg"
+
+date: "26 februari 2019"
+
+output: html_document
+
+---
+
+ 
+
+library
+
+```{r}
+
+library(lintools,lib.loc = "//cbsp.nl/Infrastructuur/Apps/Centraal/R/3.4/R-34~1.1/library")
+
+library(editrules)
+
+library(mice)
+
+library(Hmisc)
+
+library(parallel)
+
+```
+
+ 
+
+formula
+
+```{r}
+
+response=2
+
+explanatory=c(8,1,3)
+
+```
+
+ 
+
+selfmade set s
+
+response=7
+
+explanatory=c(4,2,1)
+
+ 
+
+data set r
+
+response=2
+
+explanatory=c(8,1,3)
+
+ 
+
+36limited
+
+response=7
+
+explanatory=c(6,8,1)
+
+ 
+
+data set s
+
+response=9
+
+explanatory=c(4,2,5)
+
+ 
+
+true values
+
+```{r}
+
+truevals=read.csv("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/csv datRcom.csv")
+
+wts=truevals[,3]
+
+wts=wts/min(wts)
+
+truevals=truevals[,-c(1:3)]
+
+totals=colSums(truevals*wts)
+
+```
+
+ 
+
+sources
+
+```{r}
+
+source("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/freeimputations.R")
+
+source("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/initialvalues.R")
+
+source("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/sampleimp.R")
+
+source("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/lintoolsadjustment seq.R")
+
+source("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/imputationvalidator.R")
+
+```
+
+ 
+
+edits
+
+```{r}
+
+rules=editmatrix(as.character(unlist(read.table("\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/test edits (errors).txt"))))
+
+```
+
+ 
+
+```{r}
+
+basic=function(x,freeimp=freeimp,lintadj=lintadj,data=data,rules=rules,totals=totals,wts=wts) {
+
+library(lintools,lib.loc = "//cbsp.nl/Infrastructuur/Apps/Centraal/R/3.4/R-34~1.1/library")
+
+  library(editrules)
+
+library(mice)
+
+  data2=freeimp(data,rules,totals,wts)
+
+  impdata=complete(mice(data2,1,threshold=0.999999999999999,print=FALSE))
+
+  out=lintadj(impdata,data2,totals,rules,wts)
+
+  return(out)
+
+}
+
+advanced=function(x,freeimp=freeimp,sampleimp=sampleimp,lintadj=lintadj,data=data,rules=rules,totals=totals,wts=wts) {
+
+library(lintools,lib.loc = "//cbsp.nl/Infrastructuur/Apps/Centraal/R/3.4/R-34~1.1/library")
+
+library(editrules)
+
+library(mice)
+
+  data2=freeimp(data,rules,totals,wts)
+
+  #inits=complete(mice(data2,maxit=0,threshold=0.999999999999999,print=FALSE))
+
+  impdata=sampleimp(data2,function(y){complete(suppressWarnings(mice(y,1,threshold=0.999999999999999,print=FALSE)))},rules,totals,weight=wts,maxit=10)
+
+  out=lintadj(impdata,data2,totals,rules,wts)
+
+  return(out)
+
+}
+
+```
+
+impdata=sampleimp(data2,function(y,z){complete(suppressWarnings(mice(y,1,data.init=z,threshold=0.999999999999999,print=FALSE)))},rules,totals,weight=wts,init.values=inits,maxit=20)
+
+getinits(data2,rules,totals,wts)
+
+ 
+
+the loop
+
+```{r}
+
+rubindatasets=5
+
+holebatches=5
+
+frac=0.2
+
+vars=1:ncol(truevals)
+
+startseed=21942564
+
+ 
+
+holecycle=ceiling(rubindatasets*holebatches/parallelimp)
+
+parallelimp=detectCores()-1
+
+it=0
+
+outlist=outlist2=NULL
+
+rubinlist=rubinlist2=rubinlistmice=list()
+
+imputed=imputed2=list()
+
+seed=startseed
+
+if (rubindatasets>holebatches*parallelimp) {
+
+  stop("not enough datasets to pool")
+
+}
+
+clu=makeCluster(parallelimp)
+
+starttime=Sys.time()
+
+repeat {
+
+  it=it+parallelimp
+
+  cat("Iteration: ",it,", ",sep = "")
+
+  if (((it/parallelimp)-1)%%holecycle==0) {
+
+    set.seed(seed)
+
+    seed=.Random.seed[3]
+
+    set.seed(seed)
+
+    holes=truevals[,vars]
+
+nas=sample(prod(dim(holes)),frac*prod(dim(truevals)))
+
+holes=as.matrix(holes)
+
+holes[nas]=NA
+
+holes=as.data.frame(holes)
+
+data=as.data.frame(truevals)
+
+data[,vars]=holes
+
+imputed=imputed2=list()
+
+cat("Made new holes, ")
+
+  }
+
+  imputed=c(imputed,parLapply(clu,1:parallelimp,basic,freeimp=freeimp,lintadj=lintadj,data=data,rules=rules,totals=totals,wts=wts))
+
+  imputed2=c(imputed2,parLapply(clu,1:parallelimp,advanced,freeimp=freeimp,sampleimp=sampleimp,lintadj=lintadj,data=data,rules=rules,totals=totals,wts=wts))
+
+  cat("validating results","\n")
+
+  validated=parLapply(clu,imputed[(length(imputed)-parallelimp+1):length(imputed)],impvalidator,dataset=data,truevals=truevals,rules=rules,weight=wts)
+
+  validated2=parLapply(clu,imputed2[(length(imputed2)-parallelimp+1):length(imputed2)],impvalidator,dataset=data,truevals=truevals,rules=rules,weight=wts)
+
+  if (length(outlist)!=0) {
+
+    outlist=list(outlist)
+
+  }
+
+  if (length(outlist2)!=0) {
+
+    outlist2=list(outlist2)
+
+  }
+
+  outlist=validatecleaner(c(outlist,validated))
+
+  outlist2=validatecleaner(c(outlist2,validated2))
+
+  if (length(imputed)>=rubindatasets) {
+
+    for (a in 1:(length(imputed)%/%rubindatasets)) {
+
+      rubinlist[[length(rubinlist)+1]]=rubinvalidator(imputed[(1+(a-1)*rubindatasets):(a*rubindatasets)],data,truevals,response,explanatory)
+
+      rubinlist2[[length(rubinlist2)+1]]=rubinvalidator(imputed2[(1+(a-1)*rubindatasets):(a*rubindatasets)],data,truevals,response,explanatory)
+
+      micedats=lapply(1:rubindatasets,function(x){complete(suppressWarnings(mice(data,1,threshold=0.999999999999999,print=FALSE)))})
+
+      rubinlistmice[[length(rubinlistmice)+1]]=rubinvalidator(micedats,data,truevals,response,explanatory)
+
+    }
+
+    rubinlist=list(rubincleaner(rubinlist))
+
+    rubinlist2=list(rubincleaner(rubinlist2))
+
+    rubinlistmice=list(rubincleaner(rubinlistmice))
+
+    imputed=imputed[-c(1:(a*rubindatasets))]
+
+    imputed2=imputed2[-c(1:(a*rubindatasets))]
+
+  }
+
+ 
+
+}
+
+endtime=Sys.time()
+
+```
+
+ 
+
+covariance
+
+```{r}
+
+stopCluster(clu)
+
+plot(jitter(1:ncol(outlist$covdif)),outlist$covdif[1,],ylim=c(min(c(outlist$covdif,outlist2$covdif)),max(c(outlist$covdif,outlist2$covdif))))
+
+abline(h=0)
+
+points(jitter(1:ncol(outlist2$covdif)),outlist2$covdif[1,],col="red")
+
+for (i in 2:nrow(outlist$covdif)) {
+
+  points(jitter(1:ncol(outlist$covdif)),outlist$covdif[i,])
+
+  points(jitter(1:ncol(outlist2$covdif)),outlist2$covdif[i,],col="red")
+
+}
+
+```
+
+ 
+
+saving
+
+```{r}
+
+dirname="\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/control"
+
+dirname2="\\\\cbsp.nl/HomeDirectory/Productie/SECBSBG/Documents/R code/algorithm"
+
+dir.create(dirname)
+
+NAset=dataset=rep(1:(length(outlist$reldif)/holecycle/parallelimp+1),each=holecycle*parallelimp)[1:length(outlist$reldif)]
+
+rubinpool=rep(1:(min(length(outlist$reldif),holecycle*parallelimp)/rubindatasets),each=rubindatasets)[1:min(length(outlist$reldif),holecycle*parallelimp)]
+
+  rubinpool0=rubinpool
+
+  if ((length(outlist$reldif)%/%length(rubinpool0)+1)>1) {
+
+    for (i in 2:(length(outlist$reldif)%/%length(rubinpool0)+1)) {
+
+      rubinpool=c(rubinpool,rubinpool0+max(rubinpool,na.rm = TRUE))
+
+    }
+
+  }
+
+  rubinpool=rubinpool[1:length(outlist$reldif)]
+
+  if (!is.na(rev(rubinpool)[1])&&which(rev(rubinpool)!=rev(rubinpool)[1])) {
+
+    rubinpool[rubinpool==rev(rubinpool)[1]]=NA
+
+  }
+
+if (any(names(outlist)=="validation")) {
+
+  valid=cbind(NAset=c(NA,NA,NA,NA,NAset),rubinpool=c(NA,NA,NA,NA,rubinpool),reldif=c(NA,NA,NA,NA,outlist$reldif),covdif=c(NA,NA,NA,NA,abs(outlist$covdifmed)),editerr=c(NA,NA,NA,NA,outlist$editerr),outlist$validation)
+
+} else {
+
+  valid=cbind(NAset,rubinpool,reldif=outlist$reldif,covdif=abs(outlist$covdifmed),editerr=outlist$editerr)
+
+}
+
+write.csv(valid,paste0(dirname,"/validation.csv"))
+
+write.csv(outlist$covdif,paste0(dirname,"/covdif.csv"))
+
+write.csv(outlist$vardif,paste0(dirname,"/vardif.csv"))
+
+write.csv(outlist$kstests,paste0(dirname,"/kstests.csv"))
+
+write.csv(rubincleaner(rubinlist),paste0(dirname,"/rubin_parameters.csv"))
+
+dir.create(dirname2)
+
+if (any(names(outlist2)=="validation")) {
+
+  valid2=cbind(NAset=c(NA,NA,NA,NA,NAset),rubinpool=c(NA,NA,NA,NA,rubinpool),reldif=c(NA,NA,NA,NA,outlist2$reldif),covdif=c(NA,NA,NA,NA,abs(outlist2$covdifmed)),editerr=c(NA,NA,NA,NA,outlist2$editerr),outlist2$validation)
+
+} else {
+
+  valid2=cbind(NAset,rubinpool,reldif=outlist2$reldif,covdif=abs(outlist2$covdifmed),editerr=outlist2$editerr)
+
+}
+
+write.csv(valid2,paste0(dirname2,"/validation.csv"))
+
+write.csv(outlist2$covdif,paste0(dirname2,"/covdif.csv"))
+
+write.csv(outlist2$vardif,paste0(dirname2,"/vardif.csv"))
+
+write.csv(outlist2$kstests,paste0(dirname2,"/kstests.csv"))
+
+write.csv(rubincleaner(rubinlist2),paste0(dirname2,"/rubin_parameters.csv"))
+
+gc(verbose = FALSE)
+
+```

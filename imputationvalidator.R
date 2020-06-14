@@ -1,6 +1,6 @@
 
 
-impvalidator=function(imputed,dataset,truevals,rules,frac=0,maxits=0,weight=NULL) {
+impvalidator=function(imputed,dataset,truevals,truepop,rules,frac=0,maxits=0,weight=NULL,weightbig=NULL) {
   
   
   
@@ -13,13 +13,15 @@ impvalidator=function(imputed,dataset,truevals,rules,frac=0,maxits=0,weight=NULL
   
   
   if (!is.null(weight)) {
-    
     wts=weight
-    
+    if (!is.null(weightbig)) {
+      wtsbig=weightbig
+    } else {
+      wtsbig=wts
+    }
   } else {
-    
     wts=rep(1,nrow(truevals))
-    
+    wtsbig=rep(1,nrow(truepop))
   }
   
   
@@ -62,7 +64,7 @@ impvalidator=function(imputed,dataset,truevals,rules,frac=0,maxits=0,weight=NULL
   
   
   
-  covdif1=log(abs(cov(imputed)/cov(truevals)))
+  covdif1=log(abs(cov(imputed)/cov(truepop)))
   
   covdif2=which(!lower.tri(covdif1),arr.ind = TRUE)
   
@@ -84,7 +86,7 @@ impvalidator=function(imputed,dataset,truevals,rules,frac=0,maxits=0,weight=NULL
   
   meansN=round(meansn*nrow(truevals))
   
-  truemeans=colMeans(truevals)
+  truemeans=colMeans(truepop)
   
   trues=apply(truevals,2,function(x){sd(x)/sqrt(meansN)})
   
@@ -92,153 +94,26 @@ impvalidator=function(imputed,dataset,truevals,rules,frac=0,maxits=0,weight=NULL
   
   meansconf=sapply(1:ncol(truevals),function(x){mean(impsamples[x,]>=truemeans[x]-qnorm(0.975)*trues[x]&impsamples[x,]<=truemeans[x]+qnorm(0.975)*trues[x])})
   
-  
-  
-  weightedks=function(a,b,wts=NULL) {
+  weightedks=function(a,b,wts=NULL,wts2=NULL) {
     
-    library(Hmisc,quietly = TRUE)
+    library(spatstat,quietly = TRUE)
     
-    if (is.null(wts)) {
-      
-      w=rep(1,length(a))
-      
-    } else {
-      
-      w=wts
-      
-    }
+    wecdf1=ewcdf(a,wts)
+    wecdf2=ewcdf(b,wts2)
     
-    dwecdf=function(x,y1,y2,w) ecdf(Ecdf(y1,weights =  w,pl=FALSE)$x)(x)-ecdf(Ecdf(y2,weights = w,pl=FALSE)$x)(x)
+    thresholds=sort(unique(c(a,b)))
     
-    curve2=function (expr, from = NULL, to = NULL, n = 101, add = FALSE,
-                     
-                     type = "l", xname = "x", xlab = xname, ylab =
-                       
-                       NULL, log = NULL,
-                     
-                     xlim = NULL, ...)
-      
-    {
-      
-      
-      
-      sexpr <- substitute(expr)
-      
-      if (is.name(sexpr)) {
-        
-        expr <- call(as.character(sexpr), as.name(xname))
-        
-      }
-      
-      else {
-        
-        if (!((is.call(sexpr) || is.expression(sexpr)) && xname %in%
-              
-              all.vars(sexpr)))
-          
-          stop(gettextf("'expr' must be a function, or a call or an expression containing '%s'", xname), domain = NA)
-        
-        expr <- sexpr
-        
-      }
-      
-      if (dev.cur() == 1L && !identical(add, FALSE)) {
-        
-        warning("'add' will be ignored as there is no existing plot")
-        
-        add <- FALSE
-        
-      }
-      
-      addF <- identical(add, FALSE)
-      
-      if (is.null(ylab))
-        
-        ylab <- deparse(expr)
-      
-      if (is.null(from) || is.null(to)) {
-        
-        xl <- if (!is.null(xlim))
-          
-          xlim
-        
-        else if (!addF) {
-          
-          pu <- par("usr")[1L:2L]
-          
-          if (par("xaxs") == "r")
-            
-            pu <- extendrange(pu, f = -1/27)
-          
-          if (par("xlog"))
-            
-            10^pu
-          
-          else pu
-          
-        }
-        
-        else c(0, 1)
-        
-        if (is.null(from))
-          
-          from <- xl[1L]
-        
-        if (is.null(to))
-          
-          to <- xl[2L]
-        
-      }
-      
-      lg <- if (length(log))
-        
-        log
-      
-      else if (!addF && par("xlog"))
-        
-        "x"
-      
-      else ""
-      
-      if (length(lg) == 0)
-        
-        lg <- ""
-      
-      if (grepl("x", lg, fixed = TRUE)) {
-        
-        if (from <= 0 || to <= 0)
-          
-          stop("'from' and 'to' must be > 0 with log=\"x\"")
-        
-        x <- exp(seq.int(log(from), log(to), length.out = n))
-        
-      }
-      
-      else x <- seq.int(from, to, length.out = n)
-      
-      ll <- list(x = x)
-      
-      names(ll) <- xname
-      
-      y <- eval(expr, envir = ll, enclos = parent.frame())
-      
-      if (length(y) != length(x))
-        
-        stop("'expr' did not evaluate to an object of length 'n'")
-      
-      invisible(list(x = x, y = y))
-      
-    }
+    distances=sapply(thresholds,function(x){abs(wecdf1(x)-wecdf2(x))})
     
-    diferr=curve2(dwecdf(x,a,b,w),from=min(a,b),to=max(a,b))
-    
-    return(max(abs(diferr$y)))
+    return(max(distances))
     
   }
   
-  
-  
-  kstests=sapply(1:ncol(dataset),function(x){weightedks(truevals[,x],imputed[,x],wts=wts)})
+  if (all(wts==1)&all(wtsbig==1)) {
+    kstests=suppressWarnings(sapply(1:ncol(dataset),function(x){ks.test(imputed[,x],truepop[,x])$statistic}))
+  } else {
+    kstests=sapply(1:ncol(dataset),function(x){weightedks(imputed[,x],truepop[,x],wts=wts,wts2=wtsbig)})
+  }
   
   names(kstests)=colnames(dataset)
   
@@ -306,7 +181,7 @@ validatecleaner=function(impvalidators) {
 
 
 
-rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=0,maxits=0,datinpool=0,logtrans=FALSE) {
+rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=0,maxits=0,datinpool=0,logtrans=FALSE,wholepop=FALSE) {
   
   
   
@@ -314,7 +189,7 @@ rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=
   
   
   
-  poolcoefs=function(mira,wholepopulation=FALSE) {
+  poolcoefs=function(mira,wholepopulation=wholepop) {
     
     coefs=sapply(mira$analyses,function(a){summary(a)$coefficients[,1]})
     
@@ -334,13 +209,13 @@ rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=
       
     }
     
-    Vb=sqrt(rowSums((coefs-theta)^2)/(nrow(coefs)-1))
+    Vb=rowSums((coefs-theta)^2)/(ncol(coefs)-1)
     
-    Vt=Vw+Vb+Vb/nrow(coefs)
+    Vt=Vw+Vb+Vb/ncol(coefs)
     
-    df=(nrow(coefs)-1)*(1+nrow(coefs)*Vw/((nrow(coefs)+1)*Vb))^2
+    df=(ncol(coefs)-1)*(1+ncol(coefs)*Vw/((ncol(coefs)+1)*Vb))^2
     
-    return(cbind(coefs=theta,se=Vt,df=df))
+    return(cbind(coefs=theta,se=sqrt(Vt),df=df))
     
   }
   
@@ -379,7 +254,6 @@ rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=
     Mparams=matrix(unlist(poolcoefs(Mmodel)[,1:2]),nrow=1)
     
   }
-  
   
   
   if (logtrans) {
@@ -426,7 +300,7 @@ rubinvalidator=function(datalist,datamissing,truevals,response,explanatory,frac=
   
   Mparams=rbind(as.vector(truecoefs[,1:2]),as.vector(cccoefs[,1:2]),c(as.numeric(Mintervals),rep(NA,ncol(Mparams)/2)),Mparams)
   
-  colnames(Mparams)=c(paste("b",rownames(summary(pool(Mmodel)))),paste("se",rownames(summary(pool(Mmodel)))))
+  colnames(Mparams)=c(paste("b",c("intercept",colnames(datamissing)[explanatory])),paste("se",c("intercept",colnames(datamissing)[explanatory])))
   
   Mparams=cbind(frac=c(NA,NA,NA,frac),maxits=c(NA,NA,NA,maxits),datinpool=c(NA,NA,NA,datinpool),Mparams)
   

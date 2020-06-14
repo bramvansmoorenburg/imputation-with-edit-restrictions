@@ -112,7 +112,7 @@ sampleimp=function(data,fun,edits,totals,weight=NULL,init.values=NULL,maxit=5) {
   
   oldimperrs=t(sapply(1:nrow(oldimprows),solvedmaterr,x1=oldimprows))
   
-  temperr=((colSums(oldimprows*wts[narows]*is.na(data[narows,]))-totmiss)/totmiss)[navars]
+  temperr=((colSums(oldimprows*wts[narows]*is.na(data[narows,]))-totmiss)/totmiss)[navars] #note, this will give errors if nonnegative in freeimp is set to false and totmiss in one variable is exactly zero while there are still missing values
   
   startp=ifelse(length(formals(fun))==1,2,1)
   
@@ -156,7 +156,7 @@ sampleimp=function(data,fun,edits,totals,weight=NULL,init.values=NULL,maxit=5) {
     
     impchoice=sapply(1:nrow(improws),chooseimp)
     
-    impchange=t(t((improws-oldimprows)*wts[narows])/totmiss)[,navars]
+    impchange=t(t((improws-oldimprows)*wts[narows])/totmiss)[,navars,drop=FALSE]
     
     for (k in sample(which(impchoice))) {
       
